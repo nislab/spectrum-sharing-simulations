@@ -10,6 +10,8 @@ The simulator uses the Gamma distribution for both service and server repair tim
 the Deterministic distribution for second moment 1/MU^2 and 1/MU_IN^2. This has advantage of seeing how
 changing the service distribution changes the results. In addition, Gamma distribution with
 SHAPE = 1 corresponds to the Exponential distribution
+
+Returns revenue, social welfare of system.
 """
 
 # import required packages - numpy, scipy, and simpy required to be installed if not present
@@ -38,6 +40,7 @@ MU = 0.1546 # Service rate of customers; defined as 1 over first moment of servi
 K = 1.4897 # Service Distribution; defined such that second moment of service is K over MU^2
 PHI = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 NUMPHI = len(PHI)
+Cp = 1 # Cost of Preemption
 
 # import the csv files of the variables 
 IN_ARRIVALS = [] # technically the lengths of interarrival periods; used to force server to wait specified interarrival time before next arrival
@@ -165,8 +168,8 @@ def arrivals_PU(env, server, rate, t_start):
 Define supporting structures
 '''
 Server = collections.namedtuple('Server','processor,wait,n,preemptions') # define server tuple to pass into arrivals, provider methods
-Mean_Wait = np.zeros((ITERATIONS,NUMPHI,3)) # Mean wait time in the class in each iteration
-Mean_Preempt = np.zeros((ITERATIONS,NUMPHI,3)) # Mean preemptions for each class
+Mean_Revenue = np.zeros((ITERATIONS,NUMPHI)) # Mean revenue collected
+Mean_Social = np.zeros((ITERATIONS,NUMPHI)) # Mean Social Welfare of system
 
 '''
 Main Simulator Loop
@@ -191,43 +194,32 @@ for l in range(NUMPHI):
         env.process(arrivals_SU(env,server,rate_SU,t_start,phi))
         env.run(until=sim_time)
         # Record average wait in each class
-        Mean_Wait[k,l,0] = wait[0]/n[0]
-        Mean_Preempt[k,l,0] = preempt[0]/n[0]
-        Mean_Wait[k,l,1] = wait[1]/n[1]
-        Mean_Preempt[k,l,1] = preempt[1]/n[1]
-        Mean_Wait[k,l,2] = wait[2]/n[2]
-        Mean_Preempt[k,l,2] = preempt[2]/n[2]
-      
+        primary_wait = wait[1]/n[1]
+        primary_preempt = preempt[1]/n[1]
+        secondary_wait = wait[2]/n[2]
+        secondary_preempt = preempt[2]/n[2]
+        # upgrade fee is difference in costs in each class
+        Fee = (secondary_wait - primary_wait) + Cp*(secondary_preempt-primary_preempt)
+        # revenue is defined on expected per time unit basis
+        Mean_Revenue[k,l] = Fee*(n[1]/(sim_time-t_start)) # only consider the period of time during which statistics were actually collected
+        # Social Welfare is weighted average of expected costs in each class
+        Mean_Social[k,l] = (n[1]/(n[1]+n[2]))*(primary_wait+Cp*primary_preempt) + (n[2]/(n[1]+n[2]))*(secondary_wait+Cp*secondary_preempt)
 
 '''
 Compute Statistics     
 '''
-Sample_Wait = np.mean(Mean_Wait,axis=0) # Sample Mean of the Wait times
-Error = np.std(Mean_Wait, axis=0, ddof=1)*stats.norm.ppf(1-ALPHA/2)/(ITERATIONS**0.5) # confidence interval
-Sample_Preempt = np.mean(Mean_Preempt,axis=0)
-Err_Preempt = np.std(Mean_Preempt,axis=0)*stats.norm.ppf(1-ALPHA/2)/(ITERATIONS**0.5)
+Sample_Revenue = np.mean(Mean_Revenue,axis=0) # Sample mean of Revenues
+Err_Revenue = np.std(Mean_Revenue,axis=0)*stats.norm.ppf(1-ALPHA/2)/(ITERATIONS**0.5) # confidence interval
+Sample_Social = np.mean(Mean_Social,axis=0)
+Err_Social = np.std(Mean_Social,axis=0)*stats.norm.ppf(1-ALPHA/2)/(ITERATIONS**0.5)
 # Save results to file
-with open('passive_incumbent_data.csv','a', newline='') as f:
+with open('revenue_data.csv','a', newline='') as f:
     writer = csv.writer(f)
-    writer.writerow(Sample_Wait[:,0])
-    writer.writerow(Error[:,0])
-    writer.writerow(Sample_Preempt[:,0])
-    writer.writerow(Err_Preempt[:,0])
-f.close()
-with open('premium_customer_data.csv','a', newline='') as f:
+    writer.writerow(Sample_Revenue)
+    writer.writerow(Err_Revenue)
+with open('social_data.csv','a', newline='') as f:
     writer = csv.writer(f)
-    writer.writerow(Sample_Wait[:,1])
-    writer.writerow(Error[:,1])
-    writer.writerow(Sample_Preempt[:,1])
-    writer.writerow(Err_Preempt[:,1])
-f.close()
-with open('standard_customer_data.csv','a', newline='') as f:
-    writer = csv.writer(f)
-    writer.writerow(Sample_Wait[:,2])
-    writer.writerow(Error[:,2])
-    writer.writerow(Sample_Preempt[:,2])
-    writer.writerow(Err_Preempt[:,2])
-f.close()
-
+    writer.writerow(Sample_Social)
+    writer.writerow(Err_Social)
 
 

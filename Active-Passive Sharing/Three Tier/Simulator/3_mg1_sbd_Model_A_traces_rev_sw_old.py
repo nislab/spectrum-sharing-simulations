@@ -10,6 +10,8 @@ The simulator uses the Gamma distribution for both service and server repair tim
 the Deterministic distribution for second moment 1/MU^2 and 1/MU_IN^2. This has advantage of seeing how
 changing the service distribution changes the results. In addition, Gamma distribution with
 SHAPE = 1 corresponds to the Exponential distribution
+
+Returns revenue, social welfare of system.
 """
 
 # import required packages - numpy, scipy, and simpy required to be installed if not present
@@ -31,9 +33,9 @@ Define simulation Global Parameters
 '''
 
 # Customer parameter definitions
-# LAM = 0.1256 # Arrival rate of customers
+LAM = 0.1256 # Arrival rate of customers
 # LAM = 0.13802 # Arrival rate of customers
-LAM = 0.14494 # Arrival rate of customers
+# LAM = 0.14494 # Arrival rate of customers
 MU = 0.1546 # Service rate of customers; defined as 1 over first moment of service
 K = 1.4897 # Service Distribution; defined such that second moment of service is K over MU^2
 PHI = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
@@ -54,8 +56,8 @@ with open('sweepPeriod.csv',newline='') as f:
 f.close()
 
 # Define parameters of server breakdowns
-LAMBDA_IN = 0.0003 # (exponential) rate at which server breaks down
-MU_IN = 0.0374 #rate at which server gets repaired
+LAMBDA_IN = 0.0002953079377757733 # (exponential) rate at which server breaks down
+MU_IN = 0.037442230781995 #rate at which server gets repaired
 
 FM_EFF = (1/MU)*(1+LAMBDA_IN/MU_IN) #Effective First Moment of Service Time (cf Eq. 9 in https://ieeexplore.ieee.org/abstract/document/6776591)
 MU_EFF = 1/FM_EFF #Effective mean service rate of customers
@@ -64,7 +66,7 @@ if LAM >= MU_EFF:
     print('Unstable system specified. Lambda should be less than Mu.')
     exit()
 
-RHO = LAM/MU_EFF # load for each run
+#RHO = LAM/MU_EFF # load for each run
 FRAC = 0.1 # fraction of time to wait for before collecting statistics
 ITERATIONS = 30 # number of independent simulations
 ALPHA = 0.05 # confidence interval is 100*(1-alpha) percent
@@ -75,7 +77,14 @@ if K < 1:
 if K > 1:
     SHAPE = 1/(K-1) # Shape of Gamma Distribution
     SCALE = (K-1)/MU # Scale of Gamma Distribution
-  
+# paramaters determining upgrade fee, social costs
+
+RHO = LAM/MU
+RHO_IN = LAMBDA_IN/MU_IN
+K_IN = 2.107714688141189
+ALPHA = 1 - RHO_IN
+GAMMA = 1 - (RHO_IN + RHO)
+Cp = 0 # Cost of preemption parameter  
 
 '''
 Create the provider to serve the customers
@@ -88,7 +97,7 @@ server - tuple featuring the server resource and the wait time statistic collect
 t_start - time to begin collection of statistics
 '''
 
-def provider(env,arrival,prio,serv_time,t_start,server):
+def provider(env,arrival,prio,serv_time,t_start,server,fee):
     # continue looping until job complete
     notDone = True
     preemption = 0
@@ -115,6 +124,8 @@ def provider(env,arrival,prio,serv_time,t_start,server):
         server.wait[tmp] += env.now-arrival
         server.n[tmp] += 1
         server.preemptions[tmp] += preemption
+        if tmp==1:
+            server.revenue[tmp] += fee
         
 
 
@@ -127,7 +138,7 @@ rate - arrival rate passed from loop
 t_start - time to begin collection of statistics
 '''
 
-def arrivals_SU(env, server, rate, t_start,phi):
+def arrivals_SU(env, server, rate, t_start,phi,fee):
     while True:
         yield env.timeout(np.random.exponential(1/rate)) # exponential interarrival rate; 
         arrival = env.now # mark arrival time
@@ -141,10 +152,10 @@ def arrivals_SU(env, server, rate, t_start,phi):
             serv_time = 1/MU # Special case for Deterministic system
         else:
             serv_time = np.random.gamma(SHAPE,SCALE)
-        env.process(provider(env,arrival,priority,serv_time,t_start,server))   
+        env.process(provider(env,arrival,priority,serv_time,t_start,server,fee))   
 
 
-def arrivals_PU(env, server, rate, t_start):
+def arrivals_PU(env, server, rate, t_start, fee):
     off_time = 0 # initial arrival in period is not preceeded by PU interruption
     i = 0
     while True:
@@ -156,7 +167,7 @@ def arrivals_PU(env, server, rate, t_start):
         priority = 0 # PU arrival
         serv_time = IN_SERVICE[i]
         off_time = serv_time
-        env.process(provider(env,arrival,priority,serv_time,t_start,server))
+        env.process(provider(env,arrival,priority,serv_time,t_start,server,fee))
         i = (i+1)%len(IN_SERVICE)   
 
 
@@ -164,9 +175,9 @@ def arrivals_PU(env, server, rate, t_start):
 '''
 Define supporting structures
 '''
-Server = collections.namedtuple('Server','processor,wait,n,preemptions') # define server tuple to pass into arrivals, provider methods
-Mean_Wait = np.zeros((ITERATIONS,NUMPHI,3)) # Mean wait time in the class in each iteration
-Mean_Preempt = np.zeros((ITERATIONS,NUMPHI,3)) # Mean preemptions for each class
+Server = collections.namedtuple('Server','processor,wait,n,preemptions,revenue') # define server tuple to pass into arrivals, provider methods
+Revenue = np.zeros((ITERATIONS,NUMPHI)) # Mean wait time in the class in each iteration
+Social = np.zeros((ITERATIONS,NUMPHI)) # Mean preemptions for each class
 
 '''
 Main Simulator Loop
@@ -180,54 +191,44 @@ for l in range(NUMPHI):
         wait = np.zeros(3)
         n = np.zeros(3)
         preempt = np.zeros(3)
+        rev = np.zeros(3)
         rate_PU = LAMBDA_IN
         rate_SU = LAM # total arrival rate of events (customers or server breakdowns)
         phi = PHI[l] # fraction of customers in higher class
+        BETA = 1 - (RHO_IN + phi*RHO)
+        FEE = Cp*RHO*phi + (RHO*(K_IN*MU*RHO_IN+2*MU_IN*phi*GAMMA+K*MU_IN*(ALPHA-phi*GAMMA)))/(2*MU*MU_IN*ALPHA*BETA*GAMMA) # Upgrade fee
         sim_time = 2486465 # sim over sample collection period ~1 month in length, in seconds
         t_start = FRAC*sim_time # time to start collecting statistics at
-        server = Server(processor,wait,n,preempt)
+        server = Server(processor,wait,n,preempt,rev)
         #start simulation
-        env.process(arrivals_PU(env,server,rate_PU,t_start))
-        env.process(arrivals_SU(env,server,rate_SU,t_start,phi))
+        env.process(arrivals_PU(env,server,rate_PU,t_start,FEE))
+        env.process(arrivals_SU(env,server,rate_SU,t_start,phi,FEE))
         env.run(until=sim_time)
-        # Record average wait in each class
-        Mean_Wait[k,l,0] = wait[0]/n[0]
-        Mean_Preempt[k,l,0] = preempt[0]/n[0]
-        Mean_Wait[k,l,1] = wait[1]/n[1]
-        Mean_Preempt[k,l,1] = preempt[1]/n[1]
-        Mean_Wait[k,l,2] = wait[2]/n[2]
-        Mean_Preempt[k,l,2] = preempt[2]/n[2]
+        # Expected revenue defined in terms of per time unit revenue; considers time span statistics collected over
+        Revenue[k,l] = rev[1]/((1-FRAC)*sim_time)
+        # Social Welfare defined in terms of expected net customer costs
+        Social[k,l] = ((wait[1]+wait[2])+Cp*(preempt[1]+preempt[2]))/(n[1]+n[2])
       
 
 '''
 Compute Statistics     
 '''
-Sample_Wait = np.mean(Mean_Wait,axis=0) # Sample Mean of the Wait times
-Error = np.std(Mean_Wait, axis=0, ddof=1)*stats.norm.ppf(1-ALPHA/2)/(ITERATIONS**0.5) # confidence interval
-Sample_Preempt = np.mean(Mean_Preempt,axis=0)
-Err_Preempt = np.std(Mean_Preempt,axis=0)*stats.norm.ppf(1-ALPHA/2)/(ITERATIONS**0.5)
+Sample_Revenue = np.mean(Revenue,axis=0) # Sample mean of revenues
+Error = np.std(Revenue, axis=0, ddof=1)*stats.norm.ppf(1-ALPHA/2)/(ITERATIONS**0.5) # confidence interval
+Sample_Social = np.mean(Social,axis=0)
+Err_Social = np.std(Social,axis=0)*stats.norm.ppf(1-ALPHA/2)/(ITERATIONS**0.5)
 # Save results to file
-with open('passive_incumbent_data.csv','a', newline='') as f:
+with open('revenue_data.csv','a', newline='') as f:
     writer = csv.writer(f)
-    writer.writerow(Sample_Wait[:,0])
-    writer.writerow(Error[:,0])
-    writer.writerow(Sample_Preempt[:,0])
-    writer.writerow(Err_Preempt[:,0])
+    writer.writerow(Sample_Revenue)
+    writer.writerow(Error)
 f.close()
-with open('premium_customer_data.csv','a', newline='') as f:
+with open('social_data.csv','a', newline='') as f:
     writer = csv.writer(f)
-    writer.writerow(Sample_Wait[:,1])
-    writer.writerow(Error[:,1])
-    writer.writerow(Sample_Preempt[:,1])
-    writer.writerow(Err_Preempt[:,1])
+    writer.writerow(Sample_Social)
+    writer.writerow(Err_Social)
 f.close()
-with open('standard_customer_data.csv','a', newline='') as f:
-    writer = csv.writer(f)
-    writer.writerow(Sample_Wait[:,2])
-    writer.writerow(Error[:,2])
-    writer.writerow(Sample_Preempt[:,2])
-    writer.writerow(Err_Preempt[:,2])
-f.close()
+
 
 
 
