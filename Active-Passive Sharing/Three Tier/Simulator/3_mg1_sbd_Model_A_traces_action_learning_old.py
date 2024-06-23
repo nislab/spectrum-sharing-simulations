@@ -32,15 +32,28 @@ Define simulation Global Parameters
 '''
 
 # Customer parameter definitions
-# LAM = 0.1256 # Arrival rate of customers
 LAM = 0.13802 # Arrival rate of customers
-# LAM = 0.14494 # Arrival rate of customers
 MU = 0.1546 # Service rate of customers; defined as 1 over first moment of service
+if LAM >= MU:
+    print('Unstable system specified. Lambda should be less than Mu.')
+    exit()
+RHO = LAM/MU # Traffic load for each run
 K = 1.4897 # Service Distribution; defined such that second moment of service is K over MU^2
-RHO = LAM/MU # load for each run
-PHI = 0.95 # Initial Strategy 
-Cp = 1000 # Cost of Preemption
-F = 450 # Fee to join the priority queue 
+if K < 1:
+    print('K must be at least 1')
+    exit()
+# define parameters of Gamma distribution for customers; Numpy uses shape/scale definition
+if K > 1:
+    SHAPE = 1/(K-1) # Shape of Gamma Distribution
+    SCALE = (K-1)/MU # Scale of Gamma Distribution
+
+PHI = 1 # Initial strategy
+Cp = 100 # Cost of preemption
+F = 650 # Fee to join primary queue
+FRAC = 0.1 # fraction of time to wait for before collecting statistics
+ROUNDS = 10 # number of rounds to play the game over
+ITERATIONS = 30 # number of independent simulations
+ALPHA = 0.05 # confidence interval is 100*(1-alpha) percent; also used to deterime how many customers change strategy each round
 
 # import the csv files of the variables 
 IN_ARRIVALS = [] # technically the lengths of interarrival periods; used to force server to wait specified interarrival time before next arrival
@@ -57,32 +70,10 @@ with open('sweepPeriod.csv',newline='') as f:
 f.close()
 
 # Define parameters of server breakdowns
-LAMBDA_IN = 0.0002953079377757733 # (exponential) rate at which server breaks down
-MU_IN = 0.037442230781995 #rate at which server gets repaired
-RHO_IN = LAMBDA_IN/MU_IN
-K_IN = 2.107714688141189
-
-FM_EFF = (1/MU)*(1+LAMBDA_IN/MU_IN) #Effective First Moment of Service Time (cf Eq. 9 in https://ieeexplore.ieee.org/abstract/document/6776591)
-MU_EFF = 1/FM_EFF #Effective mean service rate of customers
-
-if LAM >= MU_EFF:
-    print('Unstable system specified. Lambda should be less than Mu.')
-    exit()
-
-
-FRAC = 0.1 # fraction of time to wait for before collecting statistics
-ITERATIONS = 30 # number of independent simulations
-ALPHA = 0.05 # confidence interval is 100*(1-alpha) percent
-EPSILON = 0.00005 # Approximation test for classes being equally well off
-ROUNDS = 10 # number of independent simulations
-if K < 1:
-    print('K must be at least 1')
-    exit()
-# define parameters of Gamma distribution for customers; Numpy uses shape/scale definition
-if K > 1:
-    SHAPE = 1/(K-1) # Shape of Gamma Distribution
-    SCALE = (K-1)/MU # Scale of Gamma Distribution
-  
+LAMBDAs = 1/np.mean(IN_ARRIVALS,axis=0) # (exponential) rate at which server breaks down
+MUs = 1/np.mean(IN_SERVICE,axis=0) #rate at which server gets repaired
+RHOs = LAMBDAs/MUs
+Ks = 1+np.var(IN_SERVICE,axis=0)*(MUs**2) # Service Distribution; defined such that second moment of service is Ks over MUs^2
 
 '''
 Create the provider to serve the customers
@@ -166,8 +157,6 @@ def arrivals_PU(env, server, rate, t_start):
         env.process(provider(env,arrival,priority,serv_time,t_start,server))
         i = (i+1)%len(IN_SERVICE)   
 
-
-
 '''
 Define supporting structures
 '''
@@ -178,21 +167,20 @@ with open(resultout,'a') as file:
     writer = csv.writer(file, lineterminator='\n')
     writer.writerow([PHI,0])
 file.close()
-
 '''
 Main Simulator Loop
 '''
 for r in range(ROUNDS):
+    print('Round # %d' %(r))
     PHIsim = np.zeros((ITERATIONS))
     for k in range(ITERATIONS):
-        print('Round # %d, Iteration # %d' %(r,k))
         # create server elements
         env = simpy.Environment() # establish SimPy enviornment
         processor = simpy.PreemptiveResource(env,capacity=1) # M|G|1 server with priorities, can simulate arbitrary M|G|n by updating capacity
         wait = np.zeros(3)
         n = np.zeros(3)
         preempt = np.zeros(3)
-        rate_PU = LAMBDA_IN
+        rate_PU = LAMBDAs
         rate_SU = LAM # total arrival rate of events (customers or server breakdowns)
         sim_time = 2486465 # sim over sample collection period ~1 month in length, in seconds
         t_start = FRAC*sim_time # time to start collecting statistics at
@@ -202,29 +190,26 @@ for r in range(ROUNDS):
         env.process(arrivals_SU(env,server,rate_SU,t_start,PHI))
         env.run(until=sim_time)
         # Record average wait in each class
-        # use expected values if 0 customers in class; occurs if PHI at or near 0,1
+        # use expected values if 0 customers in a class; occurs if PHI at or near 0,1
         if n[1] == 0:
-            DP = 1/(MU*(1-RHO_IN)) + (K_IN*RHO_IN/MU_IN+0.00001*K*RHO/MU)/(2*(1-RHO_IN)*(1-(RHO_IN+0.00001*RHO)))
-            nPP = LAMBDA_IN/MU
+            DP = 1/(MU*(1-RHOs)) + (Ks*RHOs/MUs+0.00001*K*RHO/MU)/(2*(1-RHOs)*(1-(RHOs+0.00001*RHO)))
+            nPP = LAMBDAs/MU
         else:
             DP = wait[1]/n[1]
             nPP = preempt[1]/n[1]
         if n[2] == 0:
-            DS = 1/(MU*(1-(RHO_IN+0.99999*RHO))) + (K_IN*RHO_IN/MU_IN+K*RHO/MU)/(2*(1-(RHO_IN+0.99999*RHO))*(1-(RHO_IN+RHO)))
-            nPS = (LAMBDA_IN+0.99999*LAM)/MU
+            DS = 1/(MU*(1-(RHOs+0.99999*RHO))) + (Ks*RHOs/MUs+K*RHO/MU)/(2*(1-(RHOs+0.99999*RHO))*(1-(RHOs+RHO)))
+            nPS = (LAMBDAs+0.99999*LAM)/MU
         else:
             DS = wait[2]/n[2]
             nPS = preempt[2]/n[2]
         # Update PHI
-        if abs((DS + Cp*nPS) - (F + DP + Cp*nPP)) < EPSILON:
-            # classes equally well off, do not update
-            PHIsim[k] = PHI
-        elif F < (DS + Cp*nPS) - (DP + Cp*nPP):
+        if F < (DS + Cp*nPS) - (DP + Cp*nPP):
             # primary better off, increase PHI
             PHIsim[k] = min(PHI+ALPHA*(1-PHI),1)
         elif F > (DS + Cp*nPS) - (DP + Cp*nPP) :
             # secondary better off, decrease PHI
-            PHIsim[k] = max(PHI-ALPHA*PHI,0)            
+            PHIsim[k] = max(PHI-ALPHA*PHI,0)
     PHI = np.mean(PHIsim,axis=0) 
     PHIerr = np.std(PHIsim,axis=0)*stats.norm.ppf(1-ALPHA/2)/(ITERATIONS**0.5)
     # write to file
@@ -232,5 +217,6 @@ for r in range(ROUNDS):
         writer = csv.writer(file, lineterminator='\n')
         writer.writerow([PHI,PHIerr])
     file.close() 
+
 
 
