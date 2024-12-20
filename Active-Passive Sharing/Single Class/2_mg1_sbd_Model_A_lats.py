@@ -1,15 +1,15 @@
 """
-Simulation of an M|G|1 queue with server breakdowns, modified to accept data from radiometer traces
+Simulation of an M|G|1 queue with server breakdowns
 Classes are denoted as class 0, and class 1. Class 0 arrivals belong to the higher priority class and
 represent server breakdowns.
 This nomenclature is used to ensure proper sort, as SimPy prioirty resource sorts on priority
 in ascending order. This also makes storing system flow time information intuitive, as Python is 
 zero indexed.
 
-The simulator uses the Gamma distribution for both service and server repair times, with a hardcoded exception for
-the Deterministic distribution for second moment 1/MU^2 and 1/MU_IN^2. This has advantage of seeing how
-changing the service distribution changes the results. In addition, Gamma distribution with
-SHAPE = 1 corresponds to the Exponential distribution
+The simulator uses a latitude in decimal format to extrapolate a first and second moment of interarrival times
+to define a distribution. For testing purposes we utilize exponential, gamma, and log-normal distributions for comparison
+
+Service times use logistic distributions in all cases
 """
 
 # import required packages - numpy, scipy, and simpy required to be installed if not present
@@ -22,6 +22,7 @@ import simpy
 import collections
 import csv
 
+
 '''
 Get input from user for system rate, service rate, and second moment of service. Script expects the input in that order
 '''
@@ -31,31 +32,59 @@ Define simulation Global Parameters
 '''
 
 # Customer parameter definitions
-# LAM = [0.13035,0.13189,0.13342,0.13495,0.13649,0.13802,0.13955,0.14109,0.14262,0.14416,0.14569] # Arrival rates of customers
 LAM = [0.13035,0.13342,0.13649,0.13955,0.14262,0.14569] # Arrival rates of customers
 NUMLAM = len(LAM)
 MU = 0.1546 # Service rate of customers; defined as 1 over first moment of service
+K = 1.4897 # Service Distribution; defined such that second moment of service is K over MU^2
+
+if K < 1:
+    print('K must be at least 1')
+    exit()
+# define parameters of Gamma distribution for customers; Numpy uses shape/scale definition
+if K > 1:
+    SHAPE = 1/(K-1) # Shape of Gamma Distribution
+    SCALE = (K-1)/MU # Scale of Gamma Distribution
+
 
 # Define parameters of server breakdowns
-LAMBDA_IN = 0.0003 # (exponential) rate at which server breaks down
-MU_IN = 0.0247 #rate at which server gets repaired
+LAT = 42.36 # latitude of center of area to consider (BOS)
+#LAT = 19.42 # latitude of center of area to consider (CDX)
+#LAT = 64.83 # latitude of center of area to consider (FAK)
+
+DIST = 0 # distribution in use, 0 for exp, 1 for Gamma, 2 for log-log
+M1 = 3600*(1.56 - 0.00266*abs(LAT) - (1.73*10**(-4))*LAT**2) # estimated interarrival mean from latitude, in seconds
+M2 = 3600*(1.80 + 0.00338*abs(LAT) - (2.86*10**(-4))*LAT**2) # estimated interarrival std deviation from latitude, in seconds
+if DIST == 1:
+    # Gamma Parameters
+    SHAPE_ARRIN = (M1/M2)**2
+    SCALE_ARRIN = (M2**2)/M1
+elif DIST == 2:
+    # Log-normal parameters
+    LN_MEAN = math.log(M1**2/math.sqrt(M1**2+M2**2))
+    LN_STD = math.log(1+M2**2/M1**2)
+
+
+LAMBDA_IN = 1/M1 # interarrival rate, equal to 1/mean
+MU_IN = 0.036 # service rate, latitude indipendent, equal to 1/mean service time (based on MST of 27.8026)
+K_IN = 1.4464 # Service Repair Distribution; defined such that second moment of service is K_IN over MU_IN^2; based on std dev of 18.5769
+
+# define shape and scale parameters as appropriate for arrivals
+
+
+
+if K_IN < 1:
+    print('K_IN must be at least 1')
+    exit()
+else:
+    # define parameters of Logistic distribution for server repair; Numpy uses shape/scale definition
+    SHAPE_SERVIN = 1/MU_IN # Shape of Logistic Distribution; corresponds to location/mean
+    SCALE_SERVIN = math.sqrt((3*(K_IN-1))/((np.pi*MU_IN)**2)) # Scale of Logistic Distribution; defined directly in terms of Variance
+
+# define parameters for service distribution times
 
 FM_EFF = (1/MU)*(1+LAMBDA_IN/MU_IN) #Effective First Moment of Service Time (cf Eq. 9 in https://ieeexplore.ieee.org/abstract/document/6776591)
 MU_EFF = 1/FM_EFF #Effective mean service rate of customers
 
-# import the csv files of the variables 
-IN_ARRIVALS = [] # technically the lengths of interarrival periods; used to force server to wait specified interarrival time before next arrival
-with open('interArrival.csv',newline='') as f:
-    reader = csv.reader(f,quoting=csv.QUOTE_NONNUMERIC)
-    for row in reader:
-        IN_ARRIVALS.extend(row)
-f.close()
-IN_SERVICE = []
-with open('sweepPeriod.csv',newline='') as f:
-    reader = csv.reader(f,quoting=csv.QUOTE_NONNUMERIC)
-    for row in reader:
-        IN_SERVICE.extend(row)
-f.close()
 
 for l in range(NUMLAM):
     if LAM[l] >= MU_EFF:
@@ -70,24 +99,6 @@ ITERATIONS = 30 # number of independent simulations
 ALPHA = 0.05 # confidence interval is 100*(1-alpha) percent
 
 
-K = 1.4897 # Service Distribution; defined such that second moment of service is K over MU^2
-if K < 1:
-    print('K must be at least 1')
-    exit()
-# define parameters of Gamma distribution for customers; Numpy uses shape/scale definition
-if K > 1:
-    SHAPE = 1/(K-1) # Shape of Gamma Distribution
-    SCALE = (K-1)/MU # Scale of Gamma Distribution
-
-K_IN = 1.0222 # Service Repair Distribution; defined such that second moment of service is K_IN over MU_IN^2
-if K_IN < 1:
-    print('K_IN must be at least 1')
-    exit()
-
-# define parameters of Gamma distribution for server repair; Numpy uses shape/scale definition
-if K_IN > 1:
-    SHAPE_IN = 1/(K_IN-1) # Shape of Gamma Distribution
-    SCALE_IN = (K_IN-1)/MU_IN # Scale of Gamma Distribution
 
 FM = 1/MU #first moment of service time of customers (without interruptions)
 SM = K/(MU**2)   #second moment of service time of customers (without interruptions)
@@ -110,7 +121,7 @@ t_start - time to begin collection of statistics
 def provider(env,arrival,prio,serv_time,t_start,server):
     # continue looping until job complete
     notDone = True
-    preemption = 0
+    preemptions = 0
     while notDone:
         # yield until the server is available, request with specifed priority
         with server.processor.request(priority=prio) as MyTurn:
@@ -124,7 +135,8 @@ def provider(env,arrival,prio,serv_time,t_start,server):
                 # process preempted, adjust remaining service time by how much longer job has remaining
                 serv_time -= (env.now-start)
                 prio -= 0.0001  #ensure that preempted job has higher priority
-                preemption += 1 
+                preemptions += 1 
+
 
     # Record total system time, if beyond the threshold
     if (env.now > t_start):
@@ -133,7 +145,8 @@ def provider(env,arrival,prio,serv_time,t_start,server):
             tmp[0]=0
         server.wait[tmp[0]] += env.now-arrival
         server.n[tmp[0]] += 1
-        server.preemptions[tmp[0]] += preemption
+        server.preempt[tmp[0]] += preemptions
+        
         
 
 
@@ -159,26 +172,31 @@ def arrivals_SU(env, server, rate, t_start):
 
 
 def arrivals_PU(env, server, rate, t_start):
-    off_time = 0 # initial arrival in period is not preceeded by PU interruption
-    i = 0
+    off_time =0
     while True:
-        #get next arrival
-        on_time = IN_ARRIVALS[i]
-        # get next on period from 
+        match DIST:
+            case 1:
+                # Gamma
+                on_time = np.random.gamma(SHAPE_ARRIN,SCALE_ARRIN)
+            case 2:
+                # Log-Normal
+                on_time = np.random.lognormal(LN_MEAN,LN_STD)
+            case _:
+                # Default 0, Exponential
+                on_time = np.random.exponential(M1)
         yield env.timeout(off_time+on_time) # general off time + exponential on time 
         arrival = env.now # mark arrival time
         priority = 0 # PU arrival
-        serv_time = IN_SERVICE[i]
+        serv_time = abs(np.random.logistic(SHAPE_SERVIN,SCALE_SERVIN)) # logistic distribution includes negative support; handle this by accepting absolute value of drawn value
         off_time = serv_time
-        env.process(provider(env,arrival,priority,serv_time,t_start,server))
-        i = (i+1)%len(IN_SERVICE)   
+        env.process(provider(env,arrival,priority,serv_time,t_start,server))   
 
 
 
 '''
 Define supporting structures
 '''
-Server = collections.namedtuple('Server','processor,wait,n,preemptions') # define server tuple to pass into arrivals, provider methods
+Server = collections.namedtuple('Server','processor,wait,n,preempt') # define server tuple to pass into arrivals, provider methods
 Mean_Wait = np.zeros((ITERATIONS,NUMLAM,2)) # Mean wait time in the class in each iteration
 Mean_Preempt = np.zeros((ITERATIONS,NUMLAM,2)) # Mean preemptions for each class
 
@@ -193,25 +211,29 @@ for l in range(NUMLAM):
         processor = simpy.PreemptiveResource(env,capacity=1) # M|G|1 server with priorities, can simulate arbitrary M|G|n by updating capacity
         wait = np.zeros(2)
         n = np.zeros(2)
-        preempt = np.zeros(2)
+        preemptions = np.zeros(2)
         rate_PU = LAMBDA_IN
         rate_SU = LAM[l] # total arrival rate of events (customers or server breakdowns)
         sim_time = 5266711 # sim over ~2 months worth of arrivals (BOS)
         # sim_time = 5251917 # sim over ~2 months worth of arrivals (CMX)
         # sim_time = 5270046 # sim over ~2 months worth of arrivals (FAK)
         t_start = FRAC*sim_time # time to start collecting statistics at
-        server = Server(processor,wait,n,preempt)
+        server = Server(processor,wait,n,preemptions)
         #start simulation
         env.process(arrivals_PU(env,server,rate_PU,t_start))
         env.process(arrivals_SU(env,server,rate_SU,t_start))
         env.run(until=sim_time)
         # Record average wait in each class
         Mean_Wait[k,l,0] = wait[0]/n[0]
-        Mean_Preempt[k,l,0] = preempt[0]/n[0]
+        Mean_Preempt[k,l,0] = preemptions[0]/n[0]
         Mean_Wait[k,l,1] = wait[1]/n[1]
-        Mean_Preempt[k,l,1] = preempt[1]/n[1]
+        Mean_Preempt[k,l,1] = preemptions[1]/n[1]
+
       
 
+'''
+Compute Statistics     
+'''
 '''
 Compute Statistics     
 '''
@@ -240,6 +262,5 @@ with open('customer_data.csv','a', newline='') as f:
     writer.writerow(Sample_Preempt[:,1])
     writer.writerow(Err_Preempt[:,1])
 f.close()
-
 
 
