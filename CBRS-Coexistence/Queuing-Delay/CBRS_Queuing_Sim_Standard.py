@@ -1,14 +1,14 @@
 """
-Simulation of an M|G|1 queue modeling CBRS, with three priority classes 
-and preemtive resume service.
-Uses simpy to dynamically generate events 
+Simulation of an M/G/1 queue modeling a CBRS-like queuing system, 
+featuring three priority classes with preemtive resume service.
+Uses SimPy to dynamically generate events 
 
 The classes are:
 Incumbent class - class 0, government users bypassing the commerical setup
 Priority class - class 1, customers opting to pay fee to join higher class
 General class - class 2, customers opting to remain in default lowest priority
 
-Customers choose between class 1 and 2 at rate phi
+Customers choose between class 1 and 2 at rate PHI
 It is assumed that PHI is a static equilibrium for validation purposes
 
 The simulator uses the Gamma distribution for service times, with a hardcoded exception for
@@ -17,6 +17,7 @@ changing the service distribution changes the results. In addition, Gamma distri
 SHAPE = 1 corresponds to the Exponential distribution
 
 The simulator measures the expected costs of service
+Author: Jonathan Chamberlain, 2021, Updated 2025 jdchambo@bu.edu
 """
 
 # import required packages - numpy, scipy, and simpy required to be installed if not present

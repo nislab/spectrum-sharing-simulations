@@ -1,9 +1,9 @@
 """
-Wrapper to define values for CBRS_WaitTime_Preemption_Sim Simulator, define save files for statistics
-Author: Jonathan Chamberlain, 2021 jdchambo@bu.edu
+Wrapper to define values for CBRS_Queuing_Sim_Standard Simulator, define save files for statistics
+Author: Jonathan Chamberlain, 2021, Updated 2025 jdchambo@bu.edu
 """
 
-from CBRS_WaitTime_Sim import Simulator
+from CBRS_Queuing_Sim_Standard import Simulator
 import os
 
 '''

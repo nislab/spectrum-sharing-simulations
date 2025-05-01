@@ -1,12 +1,27 @@
 # spectrum-sharing-simulations
 
-Simulations for Priority Purchasing Queuing Games with a focus on Wireless Spectrum Coexistence.
+Simulations for Priority Purchasing Queuing Games modeling scenarios corresponding to coexistence scenarios between different tiers of users in Dynamic Spectrum Access scenarios, under the Open Access Spectrum framework with highest priority public interest incumbents.
 
-Within the realm of wireless spectrum, much of available useful spectrum has already been allocated to various incumbents. On top of this, said incumbents are given overprotection from interference and secondary use with hampers sharing. Our goal is to evaluate an Open Access Spectrum market as an alternative for allocation of frequencies, particularly in settings where incumbent allocations with minimal (< 5% utilization) exist, leaving whitespace available for commerical markets to form. 
+Within the realm of the wireless spectrum space, much of the available useful spectrum has been previously allocated to various incumbents, complicaiting efforts to expand services. On top of this, services tend to receive over production from interference by virtue of channel assignemnts which do not take into account spatio-temporal occupancy rates. Thus, ongoing efforts are underway to evaluate the most effective means to share spectrum. One of the key questions is however how should commerical providers value access, particuarly if the Open Access framework is implemented and the fee is tied directly to occupancy.
 
-The markets in question are those of wholesale industrial users (cellular providers, edge compute networks managing city scale smart infrastructure, transportation authorities operating positive train control systems, etc.) rather than those of the indvidual clients who connect to the applications and services established by service providers among these industrial users. 
+A related question is one of how the provider/spectrum manager should implement the sharing framework given concerns over whether access should be granted to those willing to pay vs. allowing liscence-by-rule access with limited rights to prevent service gaps, and how various forms of state aid required to acheive desired utilization rates impact decision making.
 
-For further reading, we direct you to the papers referenced in the Liscence section.
+The markets in question are those of wholesale industrial users (cellualr providers, smart city scale edge compute networks, etc.) rather than individual clients; thus we consider a mix of Non Preemptive and Preemptive resume based models for inter-customer interactions. We also do not consider a loss model within this specific setting as we are not concerned with the level of indvidual requests, although this is something to consider for work building off of this code base given the nature of the system model.
+
+At the highest level, the purchasing game is modeled as a multi-tier M/G/1 (Poisson arrival, General Service, Single server) FIFO queue, where customers make their decision on whether to purchase upon entry. Such purchase decision is irrevocable, and cusotmers do not balk once joining (customers are assumed to not balk at all unless explicitly offered that as an option; it is implicitly assumed that customers otherwise balking simply do not approach the queue in the other scenarios as it is determined that service is required and therefore balking results in negative utility outweighting expected utility of joining either queuing class.) The version for the CBRS-type case with two customer tiers and the incumbent is diagrammed below<sup>[1]</sup>:
+
+![An example of the queuing model with two customer tiers plus the incumbent.](/queue_model.png?raw=true "CBRS-type Model")
+
+
+
+The models considered are a:
+    - "Active-Passive Coexistence" model based on sharing between one or more customer classes and a higher tier incumbent based on the Earth Exploration Satellite Service-passive radiometers.
+    - "Full Active Coexistence" model based on sharing between two customer classes and a highest tier incumbent, as in the Citiens Broadband Radio Service (CBRS) 
+    - "Two Class" model based on sharing between two customer classes and no incumbents present. 
+
+For additional reading on the finer details of the specfici underlying models, we direct you to the respetive references in the Lisence section.
+
+[1] Chamberlain, Jonathan. *Economic Frameworks for Coexistence in Advanced Wireless Networks* p. 126. PhD Disseration, 2025.
 
 ------------
 
@@ -34,131 +49,47 @@ pip install matplotlib
 
 The simulation code consists of various scripts corresponding to various scenarios within the realm of spectrum sharing and co-existence. 
 
-1. The Full Active directory corresponds to scenarios wherein all users are considered to be active users of spectrum, corresponding to the standard M/G/1 multi-tier queue. 
+- Active-Passive-Coexstience contains the scripts corresponding to the EESS-passive sharing based models
+- CBRS-Coexistence contains the scripts corresponding to the CBRS-like sharing based models
+- No-Incumbent contains the scripts corresponding to the models with two customer classes without incumbents.
 
-1a. The Two-Class subdirectory consists of four scripts featuring varying policies and service distributions where there exist a Primary and Secondary class of customer making the purchasing decision:
+To run the No-Incumbent, Active-Passive, or CBRS-Coexistence/Learning simulations, the desired script can be run directly from the command line, with the inputs edited directly from file.
 
-* MD1_NP_Two_Class.py - M/D/1 (Deterministic Service) with Non Preemptive service policy.
-* MM1_NP_Two_Class.py - M/M/1 (Exponential Service) with Non Preemptive service policy.
-* MG1_NP_Two_Class.py - M/G/1 (General Service) with Non Preemptive service policy - as a policy must be specified, the script utilizes the Gamma Distribution with a user controlled parameter representing the second moment of service to control the empricial service distribution.
-* MG1_PR_Two_Class.py - M/G/1 with Preemptive Resume service policy - as with the NP version, the Gamma Distribution with user controlled parameter is used to control the empirical service distribution.
+For the CBRS-Coexistence/Queuing-Delay simuatons, these are intended to be run using the wrapper functions, and thus the respective wrappers should be called form the command line, with inputs changed in the wrapper file; any global simulation parameters are still edited within the respective Sim file.
 
-Each of these scripts can be run standalone, with the parameters edited directly as needed.
+For implementation details on the specific scenarios, consult the README files within the respective folders.
 
-1b. The CBRS Like subdirectory consists of scripts based on a CBRS Like structure, which incorporates a third, independent Incumbent class with higher priority compared to the Primary and Secondary class users. 
+# Dependencies
 
-The main simulation is contained in the CBRS Queuing Delays folder, consisting of the following files:
+The main simulation utilizes Python code, specifically [SimPy](https://simpy.readthedocs.io/en/latest/contents.html)
 
-* CBRS_WaitTime_Sim.py - Contains the main simulation code for the CBRS-Like simulations, used to simulate for costs and revenues associated with a desired fraction of Primary customers.
-* CBRS_WaitTime_Wrapper.py - A wrapper to call the simulator associated with the CBRS_WaitTime_Sim file to loop over input variables, and specifiy relative file location/name to save the costs and revenues.
-* CBRS_WaitTime_Preemption_Sim.py - Contains a modified version of the main simulation code, instead returns statistics on the number, waittimes, and number of preemptions for each class of user to compare against expected values.
-* CBRS_WaitTime_Preemption_Wrapper.py - A wrapper for the above to loop over input variables and specifie relative file locations/names for the user class information. 
+The code was originally written in Python 3 using SimPy version 3. 
 
+To utilize the code, in addition to SimPy, it is also necessary to install NumPy and SciPy for statistical analysis. These can be installed using pip:
 
-The Learning Games folder contains standalone scripts which iterate the simulation itself to validate claims on the equilibrium stability updating the equilibrium beleief by comparing simulated costs and adjusting in favor of the class with the lower cost. The scripts consist of the following:
+```
+pip install numpy
+pip install scipy
+pip install simpy
+```
 
-* CBRS_Base.py - Runs the action learning algorithm and returns a file consisting of the progression of the equilibrium belief at each step as well as the actual system delays and expected delays for each customer class.
-* CBRS_Customer_Action_Learning.py - Runs the action learning algorithm and returns a file consisting of the progression of the equilibrium belief at each step as well as a Confidence Interval as the simulation is repeated multiple times before making the decision. 
+The code also used an earlier version of NumPy which utilizes an alternate syntax for the random number generation routine, and may require updates to function correctly.
 
-Note that CBRS_Base and CBRS_Customer_Action_Learning use slightly different comparisons, as the latter also considers preemption as a cost while the former only considers the cost of system delay/wait time.
+For visualizations, [Matplotlib](https://matplotlib.org/) is utilized. The code was originally written in version 3.1. 
 
+If necessary to install, Matplotlib can be installed via pip, or conda for users utilizing that method:
 
-2. The Active-Passive Sharing directory corresponds to scenarios wherein there exists an incumbent passive class of spectrum users, such as the Earth Exploration Satellite Service radiometers, resulting in an *on-off* M/G/1 Queuing Model, cf. Avi-Itzhak, B., and P. Naor. "Some queuing problems with the service station subject to breakdown." *Operations Research* 11.3 (1963): 303-320. Specifically, we consider Model A from the cited paper, where Preemptive Resume behavior is in effect.
+'''
+python -m pip install -U pip
+conda install matplotlib
+'''
 
-2a. The Single Class subdirectory consists of standalone scripts wherein there is a single customer class attempting to join the queue, and are presented with a join-or-balk decision vs the primary-vs-secondary class decision typical of our other simulators:
-
-* 2_mg1_sbd_model_A.py - Simulates the *on-off* (a/k/a service breakdown) M/G/1 queue with preemptive resume, for fixed parameters related to the breakdowns. The "2" refers to the breakdowns being caused by an incumbent tier, resulting in a total of two classes.
-* 2_mg1_sbd_model_A_traces.py - Modifies the previous script to accept csv files containing processed trace data corresponding to the arrival times between breakdown periods and the lengths of the breakdowns. The traces can be from any source but were originally intended as a means to validate our models against data collected in the [passive-radiometer-trace-data](https://github.com/nislab/passive-radiometer-trace-data) respository, processed to determine the interarrival times between overpasses and the lengths of the satellite overpass periods.
-
-2b. The Two Class subdirectory consists of standalone scripts wherein there are once again two customer classes attempting to join the queue, and are presented with the deicsion of which class to join:
-
-* 3_mg1_sbd_model_A.py - Simulates the *on-off* (a/k/a service breakdown) M/G/1 queue with preemptive resume, for fixed parameters related to the breakdowns. Similar to the script in the Single Class subdirectory, the "3" represents the total number of classes present; the Incumbents causing the breakdowns, and the Primary and Secondary user classes in the service queue itself.
-* 3_mg1_sbd_model_A_traces.py - Modifies the previous script to accept csv files containing processed trace data, similarly to its Single Class counter part.
-* 3_mg1_sbd_model_A_traces_rev_sw.py - Similar to the previous script, but instead calculates the resulting revenue from admissions, and the social welfare of the users active in the system.
-* 3_mg1_sbd_model_A_traces_action_learning.py - A dyanmic game played within the M/G/1 on-off setting, incorporating trace data.
-
-------------------------
-
-# Inputs
-
-The functions in CBRS Like/CBRS Queuing Delays accept inputs via the wrapper functions:
-
-* LAM - the customer arrival rate lambda, LAM > 0.
-* MU - the customer service rate mu, 0 < MU < LAM is required for a stable system.
-* K - the customer second moment of service paremter defining the empirical service distribution, K >= 1.  
-* LAMi - the incumbent arrival rate.
-* MUi - the incumbent service rate.
-* Ki - the incumbent second moment of service paraemter defining the empirical service distribution.
-* PHI - the fraction of customers joining the primary service class.
-
-CBRS_WaitTime_Sim.py has the following additional input to specify the path to store its output, defined in its wrapper by default as follows:
-
-* costfile = costfiles/cost_stats_lambda_{0} - path to the file storing cost and revenue data.
-
-CBRS_WaitTime_Preemption_Sim.py has the following additional inputs, including paths to store outs with defaults defined in its corresponding wrapper:
-
-* CAPACITY - Total capacity of the server, enables multiserver queues to be considered.
-* incfile = statfilefiles/inc_stats_lambda_{0}.csv - path to the file storing incumbent statistics.
-* pufile = statfilefiles/pu_stats_lambda_{0}.csv - path to the file storing primary/priority customer statistics.
-* gufile = statfilefiles/gu_stats_lambda_{0}.csv - path to the file storing secondary/general customer statistics.
+Any relevant matplotlib dependencies are automatically installed. Alternatively, the simualtor output as described below are CSV files which can be imported into elsewhere, e.g. MATLAB for visualization/analysis if one so chooses.
 
 
-# Parameters
+# Simulators
 
-In addition to the Inputs above serving as parameters to standalone scripts where applicable, the following parameters are common to all scripts:
-
-* SIM_TIME - The length of time to run the simulation over. The default is typically set on a scale such that on the order of ~100,000 customers are created. If using a script with traces, SIM_TIME should be set to the exact length of time the traces cover to avoid errors.
-* FRAC - The fraction of time elapsed before statistics are collected, to allow the system to reach steady state conditions. By default this is set to 0.1 so that the related T_START variable is set to a value of 10% of the value of SIM_TIME. 
-* ITERATIONS - The number of indepdendent simulations, by default this is 30. 
-* ALPHA - Used to set the confidence interval. By default this is 0.05 corresponding to CIs of 95%.
-
-The following parameters are common to scripts involving trace data. Technically these parameters are coded as empty vectors extended by the reader function in order to pass the data in a usable format. The related files are specified in the loop on the line below the parameter declaration.
-
-* IN_ARRIVALS - the csv containing the interarrival times of the on/off periods; a/k/a the interarrival times between incumbent arrivals. By default this expects a file named interArrival.csv.
-* IN_SERVICE - the csv containing the breakdown lengths of the on/off periods; a/k/a the service periods of the incumbents. By default this expects a file named sweepPeriod.csv.
-
-The following parameters are common to scripts involving the Learning games 
-
-* C/F - the fixed cost to join the Primary/Priority queue. 
-* ROUNDS - the number of rounds to repeat the game over, as distinct from the number of repeated simulations within a round. Rounds are the outer loops controlling the decision over how to update the equilibrium belief and by what amount based on the results obtained, which may be the result of repeated iterations to observe for outliers. 
-* Cp/Vp - the "cost of preemption", i.e. the valuation placed on the costs of service interruptions caused by interruptions by higher class users.
-
-
-# Outputs
-
-1a. The scripts in the Full Active/Two Class Directory generate plots of the simulated results compared against the expected results.
-
-1b. The scripts in the Full Active/CBRS Like/CBRS Queing Delays directory generate CSV files containing the products described in the inputs section:
-
-* costfile - consists of vectors of simulated mean costs to join the Primary class and resultant revenues and the error bound, under the assumption that PHI is an equilibrium state for the given parameters, in the form [Mean Costs, Cost error delta, Mean Revenue, Revenue error delta].
-* incfile - consists of vectors of the mean wait times, mean number of incumbents, and mean number of preemptions of incumbents and accompanying error bounds, in the form [Mean wait times, Wait time error Delta, Mean number of incumbents, number of incumbent error Delta, Mean number of preemptions, number of preemptions error Delta].
-* pufile - consists of vectors of the mean wait times, mean number of primary/priority customers, and mean number of preemptions of incumbents and accompanying error bounds, in the form [Mean wait times, Wait time error Delta, Mean number of primary customers, number of primary customer error Delta, Mean number of preemptions, number of preemptions error Delta].
-* gufile - consists of vectors of the mean wait times, mean number of secondary/general customers, and mean number of preemptions of incumbents and accompanying error bounds, in the form [Mean wait times, Wait time error Delta, Mean number of secondary customers, number of secondary customer error Delta, Mean number of preemptions, number of preemptions error Delta].
-
-The scripts in the Full Active/CBRS Like/Learning Games directory return a csv, named by default 'results.csv', consisting of the products of the learning game simulations as described in the Usage section:
-
-* CBRS_Base.py returns vectors of the customers' chosen equilibrium strategy belief, mean wait times of each user class, and the corresponding expected wait times for each customer class based on the given choice of equilibrium strategy in the form [PHI, incumbent mean wait, primary mean wait, primary expected wait, secondary mean wait, secondary expected wait].
-* CBRS_Customer_Action_Learning.py returns vectors of the customers' chosen strategy and the corresponding error from the simulations undertaken in each round, in the form [PHI, PHI error delta].
-
-2a. The scripts in Active-Passive Sharing/Single Class folder return csv files detailing statistics related to each user type, with the following default names specified in the scripts themselves:
-
-* eess_data.csv - consists of vectors of the statistical system delay data and number of preemptions by the incumbent class (as represented by Earth Exploration Satellite Service, for example) and corresponding error ranges for the condfidence intervals, in the form [Incumbent mean wait, Incumbent mean error Delta, Incumbent mean preemption, Incumbent mean error Delta].
-* customer_data.csv - consists of vectors of the stasitical system delay data and number of preemptions by the customer class, and corresponding error ranges for the confidence intervals, in the form [Customer mean wait, Customer mean error Delta, Customer mean preemption, Customer mean error Delta].
-
-2b. The scripts in Active-Passive Sharing/Two Class folder return csv files which depend on the script being run.
-
-3_mg1_sbd_Model_A.py and 3_mg1_sbd_Model_A_traces.py return the following files, with the follwing default names specified in the file itself:
-
-* passive_incumbent_data.csv - consists of vectors of the statistical system delay data and number of preemptions by the incumbent class and corresponding error ranges for the condfidence intervals, in the form [Incumbent mean wait, Incumbent mean error Delta, Incumbent mean preemption, Incumbent mean error Delta].
-* premium_customer_data.csv - consists of vectors of the stasitical system delay data and number of preemptions by the primary/premium customer class, and corresponding error ranges for the confidence intervals, in the form [Customer mean wait, Customer mean error Delta, Customer mean preemption, Customer mean error Delta].
-* standard_customer_data.csv - consists of vectors of the stasitical system delay data and number of preemptions by the secondary/standard customer class, and corresponding error ranges for the confidence intervals, in the form [Customer mean wait, Customer mean error Delta, Customer mean preemption, Customer mean error Delta].
-
-3_mg1_sbd_Model_A_rev_sw.py returns the following files, with the follwing default names specified in the file itself:
-
-* revenue_data.csv - consists of vectors of the statistical mean revenue generated and corresponding errors, in the form [Mean revenue, Revenue error Delta]. 
-* social_data.csv - consists of vectors of the statistical mean social welfare corresponding to the specified parameters, in the form [Mean Social Welfare, Social Welfare error Delta].
-
-3_mg1_sbd_Model_A_traces_action_learning.py returns vectors of the customers' chosen strategy and the corresponding error from the simulations undertaken in each round, in the form [PHI, PHI error delta].
+The functionality at a high level is similar to that of the [advance-reseravation-simulation](https://github.com/nislab/advance-reservation-simulation) project: using SimPy, streams of customers are created and then split into primary and secondary (also known as priority and general access) customer groups, or alternatively into groups of joining versus balking customers, based on a threshold equilibrium PHI. When incumbents are present, an independent stream of users are created with an alternative higher priority which always preemptions customers. Customers may or may not be able to preempt each other depending on the specifics of the scenario. The specific implementation details are left to the subfolders as while each are similar in nature, differences in implementation result in differing inputs and formatting of the outputs.
 
 ------------------------
 
@@ -167,17 +98,21 @@ The scripts in the Full Active/CBRS Like/Learning Games directory return a csv, 
 
 These materials may be freely used and distributed, provided that attribution to this original source is acknowledged. If you reuse the code in this repository, we kindly ask that you refer to the relevant work (cf. the included bib files in the citation directory of this repository):
 
-* Full Active/CBRS Like scripts
-
-Chamberlain, Jonathan, and David Starobinski. "Game Theoretic Analysis of Citizens Broadband Radio Service." 2022 20th International Symposium on Modeling and Optimization in Mobile, Ad hoc, and Wireless Networks (WiOpt). IEEE, 2022.
-
-* Active-Passive Sharing/Single Class scripts
+* Active-Passive-Coexistence/Single-Customer:
 
 Chamberlain, Jonathan, Joel T. Johnson, and David Starobinski. "Spectrum Sharing between Earth Exploration Satellite and Commercial Services: An Economic Feasibility Analysis." 2024 IEEE International Symposium on Dynamic Spectrum Access Networks (DySPAN). IEEE, 2024.
 
-* Active-Passive Sharing/Two Class scripts
+* Active-Passive-Coexistence/Two-Customer:
 
 Chamberlain, Jonathan, David Starobinski, and Joel T. Johnson. "Facilitating Spectrum Sharing with Passive Satellite Incumbents." IEEE Journal on Selected Areas in Communications (2024).
+
+* CBRS-Coexistence:
+
+Chamberlain, Jonathan, and David Starobinski. "Game Theoretic Analysis of Citizens Broadband Radio Service." 2022 20th International Symposium on Modeling and Optimization in Mobile, Ad hoc, and Wireless Networks (WiOpt). IEEE, 2022.
+
+* No-Incumbent:
+
+Chamberlain, Jonathan, and David Starobinski. "Strategic Revenue Management of Preemptive versus Non-Preemptive Queues". Operations Research Letters, 2021.
 
 -----------------
 # References

@@ -1,9 +1,9 @@
 """
-Wrapper to define values for CBRS_WaitTime_Preemption_Sim Simulator, define save files for statistics
-Author: Jonathan Chamberlain, 2021 jdchambo@bu.edu
+Wrapper to define values for CBRS_Queuing_Sim_Preemption_Counter, define save files for statistics
+Author: Jonathan Chamberlain, 2021, Updated 2025 jdchambo@bu.edu
 """
 
-from CBRS_WaitTime_Preemption_Sim import Simulator
+from CBRS_Queuing_Sim_Preemption_Counter import Simulator
 import os
 
 '''
@@ -20,7 +20,7 @@ k = 2 # service distribution
 lami = 0.5 # incument arrival rate
 mui = 10 # incumbent service rate
 ki = 2 # incumbent service distribution
-c = 1 # capacity of the server
+cap = 1 # capacity of the server
 
 
 for i in range(len(lam)):
@@ -36,5 +36,5 @@ for i in range(len(lam)):
 		gufile = os.path.join(workingdir, 'statfilefiles/gu_stats_lambda_{0}.csv'.format(l))
 		os.makedirs(os.path.dirname(gufile), exist_ok = True)
 		print('Starting lambda = {0}, phi = {1}'.format(l,p))
-		Simulator(l, mu, p, k, lami, mui, ki, c, incfile, pufile, gufile)
+		Simulator(l, mu, p, k, lami, mui, ki, cap, incfile, pufile, gufile)
 print('Simulations Complete')

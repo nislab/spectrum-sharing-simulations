@@ -1,15 +1,20 @@
 """
-Simulation of an M|G|1 queue with two priority classes and no preemption
+Simulation of an M|G|1 queue with two priority classes and Preemptive Resume mechanics
+(Possion Arrivals, General Service)
+
 Uses simpy to dynamically generate events 
 Classes are denoted as class 0, and class 1. Class 0 is the higher priority class.
 This nomenclature is used to ensure proper sort, as SimPy prioirty resource sorts on priority
 in ascending order. This also makes storing system flow time information intuitive, as Python is 
 zero indexed.
 
-The simulator uses the Gamma distribution for service times, with a hardcoded exception for
-the Deterministic distribution for second moment 1/MU^2. This has advantage of seeing how
-changing the service distribution changes the results. In addition, Gamma distribution with
-SHAPE = 1 corresponds to the Exponential distribution
+While service is determined by the second moment parameter K, the simulator itself leverages the Gamma distribution 
+for service times by default, with a hardcoded exception for the Deterministic distribution for second moment 1/MU^2. 
+This has advantage of seeing how changing the service distribution changes the results. 
+
+In addition, Gamma distribution with SHAPE = 1 (K=2) corresponds to the Exponential distribution
+
+Author: Jonathan Chamberlain, 2020, updated 2025, jdchambo@bu.edu
 """
 
 # import required packages - numpy, scipy, and simpy required to be installed if not present
@@ -51,7 +56,7 @@ RHO = np.zeros(NUMLAM) # load for each run
 for l in range(NUMLAM):
     RHO[l] = LAM[l]/MU 
 FRAC = 0.05 # fraction of time to wait for before collecting statistics
-ITERATIONS = 10 # number of independent simulations
+ITERATIONS = 1 # number of independent simulations
 ALPHA = 0.05 # confidence interval is 100*(1-alpha) percent
 # define parameters of Gamma distribution; Numpy uses shape/scale definition
 if K > 1:
@@ -71,17 +76,25 @@ t_start - time to begin collection of statistics
 '''
 
 def provider(env,arrival,prio,serv_time,t_start,server):
-    # yield until the server is available, request with specifed priority
-    with server.processor.request(priority=prio) as MyTurn:
-        yield MyTurn
+    # continue looping until job complete
+    notDone = True
+    while notDone:
+        # yield until the server is available, request with specifed priority
+        with server.processor.request(priority=prio) as MyTurn:
+            yield MyTurn
+            # customer has aquired the server, run job for specified service time
+            start = env.now
+            try:
+                yield env.timeout(serv_time)
+                notDone = False # job complete, reverse flag to exit loop
+            except simpy.Interrupt:
+                # process preempted, adjust remaining service time by how much longer job has remaining
+                serv_time -= (env.now-start)
 
-        # customer has aquired the server, run job for specified service time
-        yield env.timeout(serv_time)
-
-        # Record total system time, if beyond the threshold
-        if (env.now > t_start):
-            server.wait[prio] += env.now-arrival
-            server.n[prio] += 1
+    # Record total system time, if beyond the threshold
+    if (env.now > t_start):
+        server.wait[prio] += env.now-arrival
+        server.n[prio] += 1
 
 
 '''
@@ -133,7 +146,7 @@ for l in range(NUMLAM):
         print('Lambda %.3f, Iteration # %d' %(LAM[l],k))
         # create server elements
         env = simpy.Environment() # establish SimPy enviornment
-        processor = simpy.PriorityResource(env,capacity=1) # M|G|1 server with priorities, can simulate arbitrary M|G|n by updating capacity
+        processor = simpy.PreemptiveResource(env,capacity=1) # M|G|1 server with priorities, can simulate arbitrary M|G|n by updating capacity
         wait = np.zeros(2)
         n = np.zeros(2)
         rate = LAM[l]
@@ -167,8 +180,8 @@ Plot Satistical Results against Analytical Expected Values
 NPAnalytical_Wait_High = np.zeros(NUMLAM) # Expected wait time of Class 0
 NPAnalytical_Wait_Low = np.zeros(NUMLAM) # Expected wait time of Class 1
 for l in range(NUMLAM):
-    NPAnalytical_Wait_High[l] = (K*RHO[l])/(2*MU*(1-PHI*RHO[l])) + 1/MU 
-    NPAnalytical_Wait_Low[l] = (K*RHO[l])/(2*MU*(1-RHO[l])*(1-PHI*RHO[l])) + 1/MU 
+    NPAnalytical_Wait_High[l] = (2-(2-K)*PHI*RHO[l])/(2*MU*(1-PHI*RHO[l])) 
+    NPAnalytical_Wait_Low[l] = (2-(2-K)*RHO[l])/(2*MU*(1-RHO[l])*(1-PHI*RHO[l]))
 plt.plot(LAM,NPAnalytical_Wait_Low, label='Low Class, Analytical') # Plot of Expected Wait Times, class 1
 plt.plot(LAM,NPAnalytical_Wait_High, label='High Class, Analytical') # Plot of Expected Wait Times, class 0
 plt.errorbar(LAM, Sample_Wait[:,1], yerr=Error[:,1], fmt='x', label='Low Class, Simulated') # Plot of Simulated Wait Times, class 1
