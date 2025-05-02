@@ -12,6 +12,8 @@ changing the service distribution changes the results. In addition, Gamma distri
 SHAPE = 1 corresponds to the Exponential distribution
 
 Returns revenue, social welfare of system.
+
+Author: Jonathan Chamberlain, 2023, updated 2025, jdchambo@bu.edu
 """
 
 # import required packages - numpy, scipy, and simpy required to be installed if not present

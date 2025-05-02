@@ -17,6 +17,8 @@ changing the service distribution changes the results. In addition, Gamma distri
 SHAPE = 1 corresponds to the Exponential distribution
 
 The simulator measures the expected costs of service
+
+Author: Jonathan Chamberlain, 2021, updated 2025, jdchambo@bu.edu
 """
 
 # import required packages - numpy, scipy, and simpy required to be installed if not present

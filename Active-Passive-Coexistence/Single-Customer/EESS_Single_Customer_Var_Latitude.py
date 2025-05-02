@@ -10,6 +10,8 @@ The simulator uses a latitude in decimal format to extrapolate a first and secon
 to define a distribution. For testing purposes we utilize exponential, gamma, and log-normal distributions for comparison
 
 Service times use logistic distributions in all cases
+
+Author: Jonathan Chamberlain, 2024, updated 2025, jdchambo@bu.edu
 """
 
 # import required packages - numpy, scipy, and simpy required to be installed if not present

@@ -12,6 +12,7 @@ the Deterministic distribution for second moment 1/MU^2 and 1/MU_IN^2. This has 
 changing the service distribution changes the results. In addition, Gamma distribution with
 SHAPE = 1 corresponds to the Exponential distribution
 
+Author: Jonathan Chamberlain, 2023, updated 2025, jdchambo@bu.edu
 """
 
 # import required packages - numpy, scipy, and simpy required to be installed if not present
