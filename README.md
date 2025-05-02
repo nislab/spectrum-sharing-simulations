@@ -23,26 +23,6 @@ For additional reading on the finer details of the specfici underlying models, w
 
 [1] Chamberlain, Jonathan. *Economic Frameworks for Coexistence in Advanced Wireless Networks* p. 126. PhD Disseration, 2025.
 
-------------
-
-# Dpendencies
-
-The main simulations utilize Python code, specifically [SimPy](https://simpy.readthedocs.io/en/latest/contents.html).
-
-To utilize the code, in addition to SimPy, it is also necessary to install NumPy and SciPy for statistical analysis. These can be installed using pip:
-
-```
-pip install numpy
-pip install scipy
-pip install simpy
-```
-
-The pyplot module from [matplotlib](https://matplotlib.org/stable/) is also required to run certain scripts; matplotlib can also be installed using pip:
-
-```
-pip install matplotlib
-```
-
 --------------
 
 # Usage
