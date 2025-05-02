@@ -15,13 +15,12 @@ The Two-Customer code corresponds to the scenario variant where the secondary cu
 * EESS_Two_Customer_Traces_Rev_Sw.py - A modified version of the above evaluating the revenue and social welfare data for a given configuration
 * EESS_Two_Customer_Traces_Action_Learning.py - A modified version of the above where customers determine the optimal equilibrium decision via an action learning game.
 
-------------
 
-# Dependencies
+## Dependencies
 
 In addition to the dependencies listed in the main folder, the Traces scripts require formatted input corresponding to EESS-passive arrival and overpass patterns. These take the form of vectors processed from data in the [passive-radiometer-trace-data](https://github.com/nislab/passive-radiometer-trace-data) repository. 
 
-# Inputs
+## Inputs
 
 Inputs and parameters are sepecified directly within the script files and can be updated via direct edits:
 
@@ -68,7 +67,7 @@ For the Var_Latitude script, there are parameters related to latidude and custom
 * DIST - a parameter controlling the distribution used for testing radiometer service distribution, either Exponential, Gamma, or Log-Log
 
 
-# Simulators
+## Simulators
 
 The simulators function similarly to the simulators for the other cases, however the simulators are based primarily on a M/G/1 queue with breakdowns, which explains certain of the parameter definitions in the code. 
 
@@ -78,7 +77,7 @@ Otherwise, each arrival loop processes by taking the next user, sorting into cla
 
 In the case of the Action Learning game, the simulations are repeated over multiple rounds; each round the customers' strategy is updated based on which class incurred the lower cost in the previous round, as determined by the mean of the resulting strategy outcomes over each iteration.
 
-# Outputs
+## Outputs
 
 The Single-Customer scripts return csv files detailing statistics related to each user type; the default names are specified in line and the files will be generated in the current working directory:
 

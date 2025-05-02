@@ -39,7 +39,7 @@ For the CBRS-Coexistence/Queuing-Delay simuatons, these are intended to be run u
 
 For implementation details on the specific scenarios, consult the README files within the respective folders.
 
-# Dependencies
+## Dependencies
 
 The main simulation utilizes Python code, specifically [SimPy](https://simpy.readthedocs.io/en/latest/contents.html)
 
@@ -67,7 +67,7 @@ conda install matplotlib
 Any relevant matplotlib dependencies are automatically installed. Alternatively, the simualtor output as described below are CSV files which can be imported into elsewhere, e.g. MATLAB for visualization/analysis if one so chooses.
 
 
-# Simulators
+## Simulators
 
 The functionality at a high level is similar to that of the [advance-reseravation-simulation](https://github.com/nislab/advance-reservation-simulation) project: using SimPy, streams of customers are created and then split into primary and secondary (also known as priority and general access) customer groups, or alternatively into groups of joining versus balking customers, based on a threshold equilibrium PHI. When incumbents are present, an independent stream of users are created with an alternative higher priority which always preemptions customers. Customers may or may not be able to preempt each other depending on the specifics of the scenario. The specific implementation details are left to the subfolders as while each are similar in nature, differences in implementation result in differing inputs and formatting of the outputs.
 

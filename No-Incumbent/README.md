@@ -5,10 +5,9 @@ To run the simulators in this folder, simply run the scripts directly on the com
 Non-Preemptive for the queue without preemptions, thus lower priority customers are not preempted even if higher priority customers arrive
 Preemptive-Resume for the queue with preemptions, where lower priority customers resume service from the point of interruption
 
-------------
 
 
-# Inputs
+## Inputs
 
 The Inputs and Parameters are contained within the top of the files, and are updated via simply editing the scripts:
 
@@ -39,7 +38,7 @@ The remaining parameters are:
 * ALPHA - Used to set the confidence interval. By default this is 0.05 corresponding to CIs of 95%.
 
 
-# Simulators
+## Simulators
 
 The Simulators run over a number of loops, based on the number of ITERATIONS, for each value of LAM specified, and compute the wait time statistics for each class of user.
 
@@ -53,6 +52,6 @@ In the provider stream, the provider takes the next customer off the queue in pr
 
 At the end of the interation, the mean wait times for each class of users are computed.
 
-# Outputs
+## Outputs
 
 Following the end of the simulations, the sample wait and error and computed per class for each specified value of lambda and printed to screen, with corresponding plots generated using matplotlib - the plots are not automatically saved to file.

@@ -17,9 +17,9 @@ The Learning simulations can be called via the command line, with their inputs m
 * CBRS_Customer_Action_Learning.py - Runs the action learning algorithm and returns a file consisting of the progression of the equilibrium belief at each step as well as a Confidence Interval as the simulation is repeated multiple times before making the decision
 
 Note that CBRS_Base and CBRS_Customer_Action_Learning use slightly different comparisons, as the latter also considers preemption as a cost while the former only considers the cost of system delay/wait time.
-------------
 
-# Inputs
+
+## Inputs
 
 In the case of the Queuing-Delay scripts, certain of the inputs are accepted via the wrapper files and should be edited there:
 
@@ -62,7 +62,7 @@ The wrappers also specify the output file destinations, where lambda_{0} denotes
 * pufile - in CBRS_Preemption_Wrapper, the path to the primary/priority statistics statfilefiles/pu_stats_lambda_{0}.csv 
 * gufile - in CBRS_Preemption_Wrapper, the path to the secondary/general statistics, statfilefiles/gu_stats_lambda_{0}.csv 
 
-# Parameters
+## Parameters
 
 In addition to the Inputs above the following parameters are editable within the scripts (in addition to lam, mu, k, phi, lami, mui, ki, and CAPACITY being parameters in the Learning scripts):
 
@@ -77,7 +77,7 @@ The Learning Games have the following additional parameters:
 * ROUNDS - the number of rounds to repeat the game over, as distinct from the number of repeated simulations within a round. Rounds are the outer loops controlling the decision over how to update the equilibrium belief and by what amount based on the results obtained, which may be the result of repeated iterations to observe for outliers. 
 * Vp - the Quality of Service "value of preemption"; i.e. the valuation placed on the costs of service interruptions caused by higher class users, in addition to the implicit costs of extended delay.
 
-# Simulators
+## Simulators
 
 As with the other simulation types, the simulators operate via looping over the duration of SIM_TIME over a series of independent processes:
 
@@ -92,7 +92,7 @@ For the Queuing-Delay scripts, these are processed and saved to the specified fi
 For the Learning scripts, these are used to update the strategy decision in the next ROUND. The observed costs being in one class versus the other are compared, with ALPHA percent of customers switching in favor of the strategy with the lower cost each round. The difference between the two scripts is that in CBRS_Base, each Round consists of a single iteration, while in CBRS_Customer_Action_Learning, each round consists of a full series of iterations - with the new value of PHI depending on the average of what the players determine after each iteration. That is, each iteration in the same round uses the same value of PHI as the equilibrium belief, with the updated PHI being based on the average of PHI +/- ALPHA across all iterations in the round.
 
 
-# Outputs
+## Outputs
 
 The outputs in the Queuing-Delay scripts are CSV files corresponding to the file paths specified in the Inputs section:
 
